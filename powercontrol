@@ -37,12 +37,12 @@ rcsid = "$Id: powercontrol,v 1.2 2001/10/16 22:05:18 jafo Exp $"
 # License for the specific language governing rights and limitations
 # under the License.
 #
-# The Original Code is powercontrol, released February 23, 2001. 
+# The Original Code is powercontrol, released February 23, 2001.
 # The Initial Developer of the Original Code is tummy.com, ltd.
 # Portions created by tummy.com, ltd. are Copyright (C) 2001
 # tummy.com, ltd. All Rights Reserved.
 #
-# Contributor(s): ______________________________________. 
+# Contributor(s): ______________________________________.
 #
 ######################################################################
 
@@ -56,7 +56,12 @@ import getopt
 #  set up serial line for modem commands
 
 def setupline(fd):
-	import termios, TERMIOS
+	import termios
+	try:
+		import TERMIOS
+	except ImportError:
+		TERMIOS = termios
+
 	new = termios.tcgetattr(fd)
 	new[0] = TERMIOS.IGNBRK | TERMIOS.IGNPAR
 	new[1] = 0
@@ -185,7 +190,7 @@ for cmd in sys.argv[1:]:
 	elif cmd == 'delay_8': retVal = doCmd('*D8.', retries, retVal)
 	elif cmd == 'delay_16': retVal = doCmd('*D16', retries, retVal)
 	elif cmd == 'delay_32': retVal = doCmd('*D32', retries, retVal)
-	
+
 	else:
 		print 'Unknown command: "%s"' % cmd
 

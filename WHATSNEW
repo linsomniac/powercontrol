@@ -1,4 +1,9 @@
 ================================
+Version 1.03 -- Fri Mar 21, 2014
+
+Fix for newer Python versions throwing exception on "TERMIOS".
+
+================================
 Version 1.02 -- Fri Mar 21, 2014
 
 Added some better documentation.
