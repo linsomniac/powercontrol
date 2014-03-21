@@ -1,0 +1,63 @@
+#  Copyright (c) 2001, Sean Reifschneider <jafo-powercontrol@tummy.com>
+#  tummy.com, ltd.,  All Rights Reserved
+
+A program to control the CPS International AC Power Controller under
+Linux and other "termios"-type Unix systems.  Allows the status to
+be checked, power to be turned on, turned off, cycled (off then on)
+and allows for dealing with the watchdog.
+
+ftp://ftp.tummy.com/pub/tummy/powercontrol/
+
+COMMENTS
+   The terminal line used can be changed by modifing the "modemLine"
+   setting at the top of the "powercontrol" file, or by using the
+   "-l" or "--line" command-line option.
+
+EXAMPLE USAGE
+
+   To read what the status of the device is, run:
+
+      python powercontrol status
+
+   To reboot the device attached:
+
+      python powercontrol reboot
+
+   To specify what device file to use as /dev/ttyS1:
+
+      python powercontrol -l /dev/ttyS1 status
+
+GETTING STARTED
+   Usage:
+      usage: powercontrol [<arguments>] <command> [...]
+
+         [ -l | --line <file> ]     Serial line device file name.
+         [ -v | --version  ]        Display program version.
+         [ -h | -? | --help  ]      Display this usage message.
+
+   Valid commands are:
+
+      status      -- Display status (results are parsable by /bin/sh)
+      cycle       -- power cycle
+      reboot      -- power cycle (same a "cycle")
+      on          -- Turn power on.
+      off         -- Turn power off.
+      standby     -- Disable watchdog.
+      arm         -- Enable/update watchdog.
+      delay_.5    -- Watchdog timeout in minutes.
+      delay_1     -- Watchdog timeout in minutes.
+      delay_2     -- Watchdog timeout in minutes.
+      delay_4     -- Watchdog timeout in minutes.
+      delay_8     -- Watchdog timeout in minutes.
+      delay_16    -- Watchdog timeout in minutes.
+      delay_32    -- Watchdog timeout in minutes.
+
+ABOUT CPS IPC HARDWARE
+
+   The "IPC" is a device which can be controlled by an RS-232 port or
+   by a ringing telephone (no DTMF, just based on reaching a number of
+   rings threshold).  Based on this input it can turn the power to a
+   device on or off.  Nice, cheap unit.  http://www.cpscom.com/
+
+   Note that this was developed without cooperation of CPS, and
+   that you should not call them seeking support for it.

@@ -1,0 +1,192 @@
+#!/usr/bin/python
+
+modemLine = '/dev/ttyS0'
+
+revision = "$Revision: 1.2 $"
+rcsid = "$Id: powercontrol,v 1.2 2001/10/16 22:05:18 jafo Exp $"
+
+#
+#  Copyright (c) 2001, Sean Reifschneider <jafo-powercontrol@tummy.com>
+#  tummy.com, ltd.,  All Rights Reserved
+#
+#  A program to control the CPS Internation AC Power Controller under
+#  Linux and other "termios"-type Unix systems.  Allows the status to
+#  be checked, power to be turned on, turned off, cycled (off then on)
+#  and allows for dealing with the watchdog.
+#
+#  ftp://ftp.tummy.com/pub/tummy/powercontrol/
+#
+#  ** ABOUT CPS IPC HARDWARE **
+#  The "IPC" is a device which can be controlled by an RS-232 port or
+#  by a ringing telephone (no DTMF, just based on reaching a number of
+#  rings threshold).  Based on this input it can turn the power to a
+#  device on or off.  Nice, cheap unit.  http://www.cpscom.com/
+#
+#  Note that this was developed without cooperation of CPS, and
+#  that you should not call them seeking support for it.
+#
+######################################################################
+#
+# The contents of this file are subject to the Mozilla Public License
+# Version 1.0 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.mozilla.org/MPL/
+#
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+# License for the specific language governing rights and limitations
+# under the License.
+#
+# The Original Code is powercontrol, released February 23, 2001. 
+# The Initial Developer of the Original Code is tummy.com, ltd.
+# Portions created by tummy.com, ltd. are Copyright (C) 2001
+# tummy.com, ltd. All Rights Reserved.
+#
+# Contributor(s): ______________________________________. 
+#
+######################################################################
+
+import os, sys, select
+import string, re
+import time
+import getopt
+
+
+########################################
+#  set up serial line for modem commands
+
+def setupline(fd):
+	import termios, TERMIOS
+	new = termios.tcgetattr(fd)
+	new[0] = TERMIOS.IGNBRK | TERMIOS.IGNPAR
+	new[1] = 0
+	new[2] = TERMIOS.CRTSCTS | TERMIOS.HUPCL | TERMIOS.CLOCAL | TERMIOS.CREAD
+	new[2] = new[2] | TERMIOS.CS8 | TERMIOS.B300 | TERMIOS.CSTOPB
+	new[3] = 0
+	new[4] = TERMIOS.B300
+	new[5] = TERMIOS.B300
+	termios.tcsetattr(fd, TERMIOS.TCSANOW, new)
+
+
+######################################################
+#  flush input buffer, write command and return result
+
+def resultWrite(fd, string, timeout = 1):
+	#  flush data in modem
+	while 1:
+		(rfdl, wfdl, efdl) = select.select([fd], [], [], 1)
+		if not rfdl: break
+
+	os.write(fd, string);
+
+	#  read incoming data
+	data = None
+	while 1:
+		(rfdl, wfdl, efdl) = select.select([fd], [], [], timeout)
+		if not rfdl: break
+		tmp = os.read(fd, 100)
+		if data: data = data + tmp
+		else: data = tmp
+
+	#  strip out the string that we wrote, if it's there
+	strlen = len(string)
+	if data and data[:strlen] == string: data = data[strlen:]
+	return(data)
+
+
+##################################
+def getStatus(modem, retries = 5):
+	for i in xrange(retries):
+		res = resultWrite(modemfd, '*?PS')
+		if res and len(res) == 10 and res[9] == '$':
+			return({ 'VERSION' : res[:3], 'RELAY_ON' : int(res[3]),
+					'OPTI_JUMPER' : int(res[4]), 'POWER_UP_STATE' : int(res[5]),
+					'RINGS_TO_REBOOT' : int(res[6]), 'DELAY_CODE' : int(res[7]),
+					'RESET_DURATION' : int(res[8]) })
+		if res and len(res) == 14 and res[13] == '$':
+			return({ 'VERSION' : res[:3], 'RELAY_ON' : int(res[3]),
+					'OPTI_JUMPER' : int(res[4]), 'POWER_UP_STATE' : int(res[5]),
+					'RINGS_TO_REBOOT' : int(res[6]), 'DELAY_CODE' : int(res[7]),
+					'RESET_DURATION' : int(res[8]) })
+		time.sleep(1)
+		continue
+
+
+################################
+def doCmd(cmd, retries, retVal):
+	for i in xrange(retries):
+		res = resultWrite(modemfd, cmd)
+		if res == '$': return(retVal)
+	return(1)
+
+
+#################################
+#  process command-line arguments
+shortArgs = "l:hv?"
+longArgs = [
+		"line=",
+		"help",
+		"version",
+		]
+
+#  process options, retaining program name and non-option arguments
+G_argn = os.path.basename(sys.argv[0])
+optlist, sys.argv[1:] = getopt.getopt(sys.argv[1:], shortArgs, longArgs)
+for arg in optlist:
+	if arg[0] == "-l" or arg[0] == "--line":
+		modemLine = arg[1]
+
+	if arg[0] == "-h" or arg[0] == "-?" or arg[0] == "--help":
+		print "usage: %s [<arguments>] <command> [...]" \
+				% os.path.basename(sys.argv[0])
+		print
+		print "\t[ -l | --line <file> ]     Serial line device file name."
+		print "\t[ -v | --version  ]        Display program version."
+		print "\t[ -h | -? | --help  ]      Display this usage message."
+		sys.exit(0)
+
+	if arg[0] == "-v" or arg[0] == "--version":
+		print "Version", string.split(revision)[1]
+		sys.exit(0)
+
+if len(sys.argv) < 2:
+	print "%s: No commands were specified" % os.path.basename(sys.argv[0])
+	sys.exit(1)
+
+
+###############
+#  set up modem
+try: modem = open(modemLine, 'w+')
+except IOError, e:
+	print '%s: Error opening modem device "%s": %s' % ( G_argn,
+			modemLine, e.strerror )
+	sys.exit(1)
+
+modemfd = modem.fileno()
+setupline(modemfd)
+retries = 5
+retVal = 0
+
+for cmd in sys.argv[1:]:
+	if cmd == 'status':
+		for name, value in getStatus(modemLine).items():
+			print '%s=%s' % ( name, value )
+
+	elif cmd == 'cycle': retVal = doCmd('*PRC', retries, retVal)
+	elif cmd == 'reboot': retVal = doCmd('*PRC', retries, retVal)
+	elif cmd == 'on': retVal = doCmd('*PON', retries, retVal)
+	elif cmd == 'off': retVal = doCmd('*POF', retries, retVal)
+	elif cmd == 'arm': retVal = doCmd('*ARM', retries, retVal)
+	elif cmd == 'standby': retVal = doCmd('*STB', retries, retVal)
+	elif cmd == 'delay_.5': retVal = doCmd('*D.5', retries, retVal)
+	elif cmd == 'delay_1': retVal = doCmd('*D1.', retries, retVal)
+	elif cmd == 'delay_2': retVal = doCmd('*D2.', retries, retVal)
+	elif cmd == 'delay_4': retVal = doCmd('*D4.', retries, retVal)
+	elif cmd == 'delay_8': retVal = doCmd('*D8.', retries, retVal)
+	elif cmd == 'delay_16': retVal = doCmd('*D16', retries, retVal)
+	elif cmd == 'delay_32': retVal = doCmd('*D32', retries, retVal)
+	
+	else:
+		print 'Unknown command: "%s"' % cmd
+
+sys.exit(retVal)

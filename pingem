@@ -1,0 +1,17 @@
+#!/bin/sh
+
+VERBOSE=""
+[ "$1" = '-v' ] && VERBOSE="-v"
+
+#for host in mail.frii.net www.frii.net 216.17.150.33
+do
+	GOT=`ping -n -c 10 $host 2>/dev/null | grep 'packets received'`
+	GOTNUM=${GOT% packets received*}
+	GOTNUM=${GOTNUM##* }
+	[ ! -z "$VERBOSE" -a "$GOTNUM" -eq 0 ] && \
+			echo "Failed: $host -- $GOTNUM packets received"
+
+	[ "$GOTNUM" -gt 0 ] && exit 0
+done
+
+exit 1
